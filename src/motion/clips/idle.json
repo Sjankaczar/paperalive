@@ -1,0 +1,8 @@
+{
+  "id": "idle",
+  "fps": 0,
+  "loop": true,
+  "frames": [
+    { "joints": {} }
+  ]
+}

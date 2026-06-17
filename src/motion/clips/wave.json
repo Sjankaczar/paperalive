@@ -1,0 +1,31 @@
+{
+  "id": "wave",
+  "fps": 24,
+  "loop": true,
+  "frames": [
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":3,"dy":-8},"r_wrist":{"dx":5,"dy":-12}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":5,"dy":-10},"r_wrist":{"dx":8,"dy":-15}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":3,"dy":-8},"r_wrist":{"dx":5,"dy":-12}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-2,"dy":-6},"r_wrist":{"dx":-4,"dy":-10}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-5,"dy":-8},"r_wrist":{"dx":-8,"dy":-13}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-2,"dy":-6},"r_wrist":{"dx":-4,"dy":-10}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":3,"dy":-8},"r_wrist":{"dx":5,"dy":-12}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":5,"dy":-10},"r_wrist":{"dx":8,"dy":-15}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":3,"dy":-8},"r_wrist":{"dx":5,"dy":-12}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-2,"dy":-6},"r_wrist":{"dx":-4,"dy":-10}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-5,"dy":-8},"r_wrist":{"dx":-8,"dy":-13}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-2,"dy":-6},"r_wrist":{"dx":-4,"dy":-10}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":3,"dy":-8},"r_wrist":{"dx":5,"dy":-12}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":5,"dy":-10},"r_wrist":{"dx":8,"dy":-15}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":3,"dy":-8},"r_wrist":{"dx":5,"dy":-12}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-2,"dy":-6},"r_wrist":{"dx":-4,"dy":-10}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-5,"dy":-8},"r_wrist":{"dx":-8,"dy":-13}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-2,"dy":-6},"r_wrist":{"dx":-4,"dy":-10}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":3,"dy":-8},"r_wrist":{"dx":5,"dy":-12}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":5,"dy":-10},"r_wrist":{"dx":8,"dy":-15}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":3,"dy":-8},"r_wrist":{"dx":5,"dy":-12}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-2,"dy":-6},"r_wrist":{"dx":-4,"dy":-10}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-5,"dy":-8},"r_wrist":{"dx":-8,"dy":-13}}},
+    {"joints":{"r_shoulder":{"dx":0,"dy":-5},"r_elbow":{"dx":-2,"dy":-6},"r_wrist":{"dx":-4,"dy":-10}}}
+  ]
+}

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  base: '/paperalive/',
+  base: './',
   // Explicit build entry (suppresses "could not auto-determine entry point" warning)
   build: {
     rollupOptions: {

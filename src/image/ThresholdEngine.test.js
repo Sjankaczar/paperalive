@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { applyThreshold, applyThresholdToCanvas } from './ThresholdEngine.js'
+import { applyThreshold, applyThresholdToCanvas, estimateBackgroundColor, autoEraseBackground } from './ThresholdEngine.js'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -202,5 +202,139 @@ describe('applyThreshold — error handling', () => {
   it('throws on unknown mode', () => {
     const imageData = makeImageData(1, 1, [0, 0, 0, 255])
     expect(() => applyThreshold(imageData, 128, 'invalid')).toThrow(/Unknown mode/)
+  })
+})
+
+// ─── P1: Auto Background Erase ───────────────────────────────────────────────
+
+describe('P1: estimateBackgroundColor', () => {
+  it('correctly estimates background color of a flat color image', () => {
+    // 3x3 image with all white pixels
+    const rgba = Array(3 * 3 * 4).fill(255)
+    const img = makeImageData(3, 3, rgba)
+    const bg = estimateBackgroundColor(img)
+    expect(bg).toEqual([255, 255, 255, 255])
+  })
+
+  it('correctly estimates background color when border is slightly noisy', () => {
+    // 3x3 image where one corner is slightly darker
+    // Border pixels are at indexes: (0,0), (1,0), (2,0), (0,1), (2,1), (0,2), (1,2), (2,2)
+    // There are 8 border pixels in a 3x3 image.
+    // Let's set 7 of them to 250, and 1 to 210.
+    // Average should be: (7 * 250 + 210) / 8 = 245
+    const rgba = Array(3 * 3 * 4).fill(250)
+    // Set top-left pixel (0,0) to 210
+    rgba[0] = 210
+    rgba[1] = 210
+    rgba[2] = 210
+    rgba[3] = 250
+
+    const img = makeImageData(3, 3, rgba)
+    const bg = estimateBackgroundColor(img)
+    expect(bg).toEqual([245, 245, 245, 250])
+  })
+})
+
+describe('P1: autoEraseBackground', () => {
+  it('correctly erases uniform background around a foreground object', () => {
+    // 10x10 image: white background, black 4x4 square in the center (x=3..6, y=3..6)
+    const width = 10
+    const height = 10
+    const rgba = []
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (x >= 3 && x <= 6 && y >= 3 && y <= 6) {
+          // Black square
+          rgba.push(0, 0, 0, 255)
+        } else {
+          // White background
+          rgba.push(255, 255, 255, 255)
+        }
+      }
+    }
+
+    const img = makeImageData(width, height, rgba)
+    const mask = autoEraseBackground(img, 30)
+
+    // Expected output: mask should be 1 inside the 4x4 square and 0 elsewhere
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const val = mask.data[y * width + x]
+        if (x >= 3 && x <= 6 && y >= 3 && y <= 6) {
+          expect(val).toBe(1)
+        } else {
+          expect(val).toBe(0)
+        }
+      }
+    }
+  })
+
+  it('correctly erases background with noise', () => {
+    // 10x10 image: white background with some noise (e.g. 240, 240, 240) on border
+    // and a black 4x4 square in the center
+    const width = 10
+    const height = 10
+    const rgba = []
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (x >= 3 && x <= 6 && y >= 3 && y <= 6) {
+          // Black square
+          rgba.push(0, 0, 0, 255)
+        } else if (x === 0 && y === 0) {
+          // Off-white noise pixel at corner
+          rgba.push(240, 240, 240, 255)
+        } else {
+          // White background
+          rgba.push(255, 255, 255, 255)
+        }
+      }
+    }
+
+    const img = makeImageData(width, height, rgba)
+    const mask = autoEraseBackground(img, 30)
+
+    // The output mask should still correctly erase background and keep foreground
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const val = mask.data[y * width + x]
+        if (x >= 3 && x <= 6 && y >= 3 && y <= 6) {
+          expect(val).toBe(1)
+        } else {
+          expect(val).toBe(0)
+        }
+      }
+    }
+  })
+
+  it('fills small holes inside foreground via morphological close', () => {
+    // 10x10 image: white background, black 4x4 square with a 1-pixel white hole at (4,4)
+    const width = 10
+    const height = 10
+    const rgba = []
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (x === 4 && y === 4) {
+          // White hole
+          rgba.push(255, 255, 255, 255)
+        } else if (x >= 3 && x <= 6 && y >= 3 && y <= 6) {
+          // Black square
+          rgba.push(0, 0, 0, 255)
+        } else {
+          // White background
+          rgba.push(255, 255, 255, 255)
+        }
+      }
+    }
+
+    const img = makeImageData(width, height, rgba)
+    const mask = autoEraseBackground(img, 30)
+
+    // The hole at (4, 4) should be closed (so it becomes 1)
+    expect(mask.data[4 * width + 4]).toBe(1)
+  })
+
+  it('throws error on invalid image data', () => {
+    expect(() => autoEraseBackground(null)).toThrow(/Invalid imageData/)
+    expect(() => autoEraseBackground({ width: 0, height: 0, data: new Uint8ClampedArray() })).toThrow(/Invalid imageData/)
   })
 })

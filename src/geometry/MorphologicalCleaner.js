@@ -17,6 +17,20 @@
 const MIN_FOREGROUND_RATIO = 0.03
 
 /**
+ * Perform a morphological close operation on a binary mask (dilate -> erode).
+ *
+ * @param {import('../types/characterData.js').BinaryMask} mask
+ * @returns {import('../types/characterData.js').BinaryMask}
+ */
+export function morphologicalClose(mask) {
+  const { width, height } = mask
+  let data = new Uint8Array(mask.data)
+  data = dilate(data, width, height)
+  data = erode(data, width, height)
+  return { data, width, height }
+}
+
+/**
  * Clean a binary mask from noise.
  *
  * @param {import('../types/characterData.js').BinaryMask} mask
@@ -28,8 +42,8 @@ export function cleanMask(mask) {
   let data = new Uint8Array(mask.data)
 
   // Step 1: Morphological closing (dilate → erode)
-  data = dilate(data, width, height)
-  data = erode(data, width, height)
+  const closed = morphologicalClose({ data, width, height })
+  data = closed.data
 
   // Step 2: Flood fill from edges — remove foreground touching borders
   data = floodFillFromEdges(data, width, height)

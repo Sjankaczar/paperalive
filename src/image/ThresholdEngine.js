@@ -12,6 +12,8 @@
  * @see architecture/dataflow.md — BinaryMask
  */
 
+import { morphologicalClose } from '../geometry/MorphologicalCleaner.js'
+
 /**
  * Apply threshold to ImageData and produce a BinaryMask.
  *
@@ -92,4 +94,155 @@ export function applyThresholdToCanvas(imageData, threshold, mode, outputCtx) {
   }
 
   outputCtx.putImageData(overlay, 0, 0)
+}
+
+/**
+ * Sample the border pixels of the image to estimate the background color (RGBA).
+ *
+ * @param {ImageData} imageData
+ * @returns {[number, number, number, number]} [R, G, B, A] average border color
+ */
+export function estimateBackgroundColor(imageData) {
+  const { width, height, data } = imageData
+  let totalR = 0, totalG = 0, totalB = 0, totalA = 0
+  let count = 0
+
+  for (let x = 0; x < width; x++) {
+    // Top edge
+    const topIdx = x * 4
+    totalR += data[topIdx]
+    totalG += data[topIdx + 1]
+    totalB += data[topIdx + 2]
+    totalA += data[topIdx + 3]
+    count++
+
+    // Bottom edge
+    if (height > 1) {
+      const bottomIdx = ((height - 1) * width + x) * 4
+      totalR += data[bottomIdx]
+      totalG += data[bottomIdx + 1]
+      totalB += data[bottomIdx + 2]
+      totalA += data[bottomIdx + 3]
+      count++
+    }
+  }
+
+  for (let y = 1; y < height - 1; y++) {
+    // Left edge
+    const leftIdx = (y * width) * 4
+    totalR += data[leftIdx]
+    totalG += data[leftIdx + 1]
+    totalB += data[leftIdx + 2]
+    totalA += data[leftIdx + 3]
+    count++
+
+    // Right edge
+    if (width > 1) {
+      const rightIdx = (y * width + width - 1) * 4
+      totalR += data[rightIdx]
+      totalG += data[rightIdx + 1]
+      totalB += data[rightIdx + 2]
+      totalA += data[rightIdx + 3]
+      count++
+    }
+  }
+
+  if (count === 0) {
+    return [0, 0, 0, 0]
+  }
+
+  return [
+    totalR / count,
+    totalG / count,
+    totalB / count,
+    totalA / count
+  ]
+}
+
+/**
+ * Automatically erase the background of an image using border sampling, flood fill,
+ * and morphological closing.
+ *
+ * @param {ImageData} imageData
+ * @param {number} tolerance
+ * @returns {import('../types/characterData.js').BinaryMask}
+ */
+export function autoEraseBackground(imageData, tolerance = 30) {
+  if (!imageData || !imageData.data || imageData.width <= 0 || imageData.height <= 0) {
+    throw new Error('autoEraseBackground: Invalid imageData')
+  }
+
+  const { width, height, data } = imageData
+  const avgBg = estimateBackgroundColor(imageData)
+  const [avgR, avgG, avgB, avgA] = avgBg
+
+  const mask = new Uint8Array(width * height)
+  mask.fill(1) // 1 is foreground, 0 is background
+
+  const visited = new Uint8Array(width * height)
+  const queue = []
+
+  function checkAndEnqueue(x, y) {
+    const idx = y * width + x
+    if (visited[idx]) return
+    visited[idx] = 1
+
+    const p = idx * 4
+    const r = data[p]
+    const g = data[p + 1]
+    const b = data[p + 2]
+    const a = data[p + 3]
+
+    const dist = Math.sqrt(
+      (r - avgR) ** 2 +
+      (g - avgG) ** 2 +
+      (b - avgB) ** 2 +
+      (a - avgA) ** 2
+    )
+
+    if (dist < tolerance) {
+      mask[idx] = 0 // background
+      queue.push(idx)
+    }
+  }
+
+  // Seed flood fill from the borders
+  for (let x = 0; x < width; x++) {
+    checkAndEnqueue(x, 0)
+    if (height > 1) {
+      checkAndEnqueue(x, height - 1)
+    }
+  }
+  for (let y = 1; y < height - 1; y++) {
+    checkAndEnqueue(0, y)
+    if (width > 1) {
+      checkAndEnqueue(width - 1, y)
+    }
+  }
+
+  // BFS
+  let head = 0
+  const DX4 = [0, 0, -1, 1]
+  const DY4 = [-1, 1, 0, 0]
+
+  while (head < queue.length) {
+    const idx = queue[head++]
+    const cx = idx % width
+    const cy = Math.floor(idx / width)
+
+    for (let d = 0; d < 4; d++) {
+      const nx = cx + DX4[d]
+      const ny = cy + DY4[d]
+
+      if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+        checkAndEnqueue(nx, ny)
+      }
+    }
+  }
+
+  // Apply morphological close
+  const rawMask = { data: mask, width, height }
+  const closedMask = morphologicalClose(rawMask)
+
+  return closedMask
 }

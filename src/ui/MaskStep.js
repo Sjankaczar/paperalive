@@ -5,7 +5,7 @@
  * @see implementation/tasks/TASK-127-145-epic11-ui.md — TASK-128
  */
 
-import { applyThreshold } from '../image/ThresholdEngine.js'
+import { applyThreshold, autoEraseBackground } from '../image/ThresholdEngine.js'
 import { MaskBrush } from '../image/MaskBrush.js'
 import { MaskHistory } from '../history/MaskHistory.js'
 
@@ -68,7 +68,7 @@ export class MaskStep {
   _initMask() {
     if (!this._alphaMask) {
       const img = this._loadedImage
-      this._alphaMask = applyThreshold(img.imageData, this._threshold, img.hasAlpha ? 'alpha' : 'luminance')
+      this._alphaMask = autoEraseBackground(img.imageData, this._threshold)
     }
     // Push initial mask snapshot
     this._maskHistory.push(this._alphaMask)
@@ -117,7 +117,7 @@ export class MaskStep {
       (val) => {
         this._threshold = val
         const img = this._loadedImage
-        this._alphaMask = applyThreshold(img.imageData, val, img.hasAlpha ? 'alpha' : 'luminance')
+        this._alphaMask = autoEraseBackground(img.imageData, val)
         this._brush = new MaskBrush(this._canvas, this._alphaMask)
         this._renderPreview()
         this._onMaskChange?.(this._alphaMask)

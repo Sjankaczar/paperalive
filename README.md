@@ -52,5 +52,29 @@ Aplikasi ini menggunakan Vite sebagai peladen pengembangnya (*development server
 - Anda bisa menghentikannya dengan tombol **⏹ Stop**.
 - Jika Anda ingin merekam gerakannya menjadi video, klik tombol **Mulai Rekam** dan **Berhenti Rekam** di panel kontrol.
 
+## Dokumentasi
+
+Dokumentasi lengkap proyek tersedia di folder [`docs/`](./docs/):
+
+### Panduan Umum
+- [Getting Started](./docs/Getting%20Started.md) — Pengenalan, struktur proyek, dan alur kerja
+- [Development and Implementation](./docs/Development%20and%20Implementation.md) — Rencana implementasi, milestones, dan manajemen risiko
+- [Testing and Quality Assurance](./docs/Testing%20and%20Quality%20Assurance.md) — Strategi pengujian dan jaminan kualitas
+- [Utility Systems](./docs/Utility%20Systems.md) — Sistem utilitas pendukung
+
+### Arsitektur & Komponen
+- [Architecture Overview](./docs/Architecture%20Overview/Architecture%20Overview.md) — Gambaran umum arsitektur
+- [Core Application Components](./docs/Core%20Application%20Components/Core%20Application%20Components.md) — Komponen inti aplikasi
+- [State Management System](./docs/Core%20Application%20Components/State%20Management%20System.md) — Sistem manajemen state
+
+### Pipeline & Sistem
+- [Image Processing Pipeline](./docs/Image%20Processing%20Pipeline/Image%20Processing%20Pipeline.md) — Pipeline pemrosesan gambar
+- [Preprocessing Pipeline](./docs/Preprocessing%20Pipeline/Preprocessing%20Pipeline.md) — Pipeline preprocessing (Worker)
+- [Character Rigging System](./docs/Character%20Rigging%20System/Character%20Rigging%20System.md) — Sistem rigging karakter
+- [Physics Simulation System](./docs/Physics%20Simulation%20System/Physics%20Simulation%20System.md) — Simulasi fisika (ARAP)
+- [Rendering System](./docs/Rendering%20System/Rendering%20System.md) — Sistem rendering NPR
+- [Motion and Animation System](./docs/Motion%20and%20Animation%20System/Motion%20and%20Animation%20System.md) — Sistem animasi dan motion
+- [Data Storage and Export](./docs/Data%20Storage%20and%20Export/Data%20Storage%20and%20Export.md) — Penyimpanan data dan ekspor
+
 ## Lisensi
 Proyek ini dibuat untuk keperluan demonstrasi dan pembelajaran grafika komputer.

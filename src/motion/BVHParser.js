@@ -38,6 +38,10 @@ export function parseHierarchy(lines) {
       // "End Site" — leaf endpoint, no channels
       const parent = stack.length ? stack[stack.length - 1] : -1
       joints.push({ name: '__End', offset: [0, 0, 0], channels: [], parent })
+      // handle "End Site {" all on one line
+      if (tok[2] === '{') {
+        stack.push(joints.length - 1)
+      }
     } else if (kw === '{') {
       stack.push(joints.length - 1)
     } else if (kw === '}') {

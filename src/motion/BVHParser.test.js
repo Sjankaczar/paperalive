@@ -42,6 +42,7 @@ describe('parseHierarchy', () => {
     expect(joints[2].name).toBe('__End')
     expect(joints[2].parent).toBe(1)
     expect(joints[2].channels).toEqual([])
+    expect(joints[2].offset).toEqual([0, 5, 0])
   })
 
   it('reports motionStart at the data line after Frame Time', () => {

@@ -198,7 +198,7 @@ export function parseBVH(text) {
 
   const { frames, frameTime } = parseMotion(lines, motionStart)
   if (frames.length === 0) {
-    return { success: false, error: 'FRAME_COUNT_MISMATCH', message: 'Tidak ada data frame' }
+    return { success: false, error: 'NO_FRAMES', message: 'Tidak ada data frame' }
   }
 
   const framesFK = computeFK(joints, frames)

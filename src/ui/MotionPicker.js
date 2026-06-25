@@ -28,6 +28,7 @@ export class MotionPicker {
    * @param {(clipId: string) => void} callbacks.onClipSelected
    * @param {() => void} callbacks.onPlay
    * @param {() => void} callbacks.onStop
+   * @param {(clip: object) => void} callbacks.onBVHImported
    */
   constructor(container, callbacks) {
     this._container = container
@@ -113,27 +114,32 @@ export class MotionPicker {
     if (!file) return
     const reader = new FileReader()
     reader.onload = () => {
-      const parsed = parseBVH(String(reader.result))
-      if (!parsed.success) {
-        toast('error', `Gagal baca BVH: ${parsed.message}`)
-        return
+      try {
+        const parsed = parseBVH(String(reader.result))
+        if (!parsed.success) {
+          toast('error', `Gagal baca BVH: ${parsed.message}`)
+          return
+        }
+        const clipId = `bvh_${file.name.replace(/\.bvh$/i, '')}`
+        const retarget = retargetBVH(parsed.data, { id: clipId })
+        if (!retarget.success) {
+          toast('error', `Gagal retarget BVH: ${retarget.message}`)
+          return
+        }
+        const select = this._el && this._el.querySelector('select')
+        const exists = select && Array.from(select.options).some(o => o.value === clipId)
+        if (select && !exists) {
+          const opt = document.createElement('option')
+          opt.value = clipId
+          opt.textContent = `BVH: ${file.name}`
+          select.appendChild(opt)
+          select.value = clipId
+        }
+        this._onBVHImported?.(retarget.data)
+        toast('success', `BVH "${file.name}" diimpor`)
+      } catch (err) {
+        toast('error', `Gagal impor BVH: ${err.message}`)
       }
-      const clipId = `bvh_${file.name.replace(/\.bvh$/i, '')}`
-      const retarget = retargetBVH(parsed.data, { id: clipId })
-      if (!retarget.success) {
-        toast('error', `Gagal retarget BVH: ${retarget.message}`)
-        return
-      }
-      const select = this._el && this._el.querySelector('select')
-      if (select && !select.querySelector(`option[value="${clipId}"]`)) {
-        const opt = document.createElement('option')
-        opt.value = clipId
-        opt.textContent = `BVH: ${file.name}`
-        select.appendChild(opt)
-        select.value = clipId
-      }
-      this._onBVHImported?.(retarget.data)
-      toast('success', `BVH "${file.name}" diimpor`)
     }
     reader.onerror = () => toast('error', 'Gagal membaca file')
     reader.readAsText(file)

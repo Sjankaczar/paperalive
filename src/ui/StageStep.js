@@ -114,6 +114,12 @@ export class StageStep {
       onClipSelected: (clipId) => this._selectClip(clipId),
       onPlay: () => this._playClip(),
       onStop: () => this._stopClip(),
+      onBVHImported: (clip) => {
+        if (this._motionResolver) {
+          this._motionResolver.registerClip(clip.id, clip)
+          this._motionResolver.playClip(clip.id)
+        }
+      },
     })
 
     // Export panel

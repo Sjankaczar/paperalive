@@ -53,8 +53,8 @@ describe('IKDragHandler', () => {
       const { positions, pinMapping } = makeFixture()
       handler.setCurrentPositions(positions)
 
-      // pointer at (150, 80) → distance to head (100,80) = 50 > 20
-      const result = handler.hitTest(150, 80, pinMapping)
+      // pointer at (300, 300) → far from all joints (>50px each)
+      const result = handler.hitTest(300, 300, pinMapping)
       expect(result).toBeNull()
     })
 

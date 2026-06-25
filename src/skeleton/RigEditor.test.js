@@ -12,6 +12,12 @@ function makeCanvas(width = 400, height = 400) {
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
+  // jsdom returns zero-size bounding rect — mock it for pointer coordinate scaling
+  canvas.getBoundingClientRect = () => ({
+    left: 0, top: 0, right: width, bottom: height,
+    width, height,
+    x: 0, y: 0, toJSON: () => {},
+  })
   return canvas
 }
 

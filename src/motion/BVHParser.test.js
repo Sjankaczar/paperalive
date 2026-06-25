@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseHierarchy } from './BVHParser.js'
+import { parseHierarchy, parseMotion } from './BVHParser.js'
 
 const MINI_BVH = `HIERARCHY
 ROOT Hips
@@ -49,5 +49,18 @@ describe('parseHierarchy', () => {
     const lines = MINI_BVH.split('\n')
     const { motionStart } = parseHierarchy(lines)
     expect(lines[motionStart].trim()).toBe('0 0 0 0 0 0 0 0 0')
+  })
+})
+
+describe('parseMotion', () => {
+  it('parses Frame Time and per-frame channel values', () => {
+    const lines = MINI_BVH.split('\n')
+    const { motionStart } = parseHierarchy(lines)
+    const { frames, frameTime } = parseMotion(lines, motionStart)
+
+    expect(frameTime).toBeCloseTo(0.0333333, 6)
+    expect(frames.length).toBe(2)
+    expect(frames[0]).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0])
+    expect(frames[1]).toEqual([0, 0, 0, 0, 0, 90, 0, 0, 0])
   })
 })

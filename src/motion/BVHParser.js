@@ -64,3 +64,26 @@ export function parseHierarchy(lines) {
 
   return { joints, motionStart }
 }
+
+/**
+ * Parse the MOTION block.
+ * @param {string[]} lines
+ * @param {number} motionStart - first data-line index (from parseHierarchy)
+ * @returns {{ frames: number[][], frameTime: number }}
+ */
+export function parseMotion(lines, motionStart) {
+  // "Frame Time:" is on the line just before motionStart
+  let frameTime = 1 / 30
+  const ftLine = lines[motionStart - 1]
+  if (ftLine && /Frame Time/i.test(ftLine)) {
+    frameTime = parseFloat(ftLine.split(':')[1])
+  }
+
+  const frames = []
+  for (let i = motionStart; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (line === '') continue
+    frames.push(line.split(/\s+/).map(Number))
+  }
+  return { frames, frameTime }
+}

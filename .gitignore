@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+coverage/
+
+# AI working docs (local only — jangan ngotorin repo tim)
+CLAUDE.md
+docs/bug_error/
+docs/superpowers/
+
+# editor / OS
+.DS_Store
+*.local

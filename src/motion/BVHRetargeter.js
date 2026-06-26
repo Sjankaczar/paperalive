@@ -39,22 +39,24 @@ export function stripRoot(frames2d, rootIndex) {
  * App joint id → candidate BVH joint names (priority order).
  * NOTE: l_shoulder maps to 'LeftArm' (the shoulder joint), NOT 'LeftShoulder'
  * (the clavicle). CMU and Mixamo differ — candidates cover both.
+ * Last group of candidates is the Daz/Poser naming (lShldr, lThigh, ...),
+ * used by the cgspeed CMU BVH release and the three.js sample BVH.
  */
 export const JOINT_MAP = {
-  head:       ['Head','mixamorig:Head'],
-  neck:       ['Neck','mixamorig:Neck'],
-  l_shoulder: ['LeftArm','mixamorig:LeftArm','LeftUpArm'],
-  r_shoulder: ['RightArm','mixamorig:RightArm','RightUpArm'],
-  l_elbow:    ['LeftForeArm','mixamorig:LeftForeArm','LeftLowArm'],
-  r_elbow:    ['RightForeArm','mixamorig:RightForeArm','RightLowArm'],
-  l_wrist:    ['LeftHand','mixamorig:LeftHand'],
-  r_wrist:    ['RightHand','mixamorig:RightHand'],
-  l_hip:      ['LeftUpLeg','mixamorig:LeftUpLeg','LHipJoint','LeftHip'],
-  r_hip:      ['RightUpLeg','mixamorig:RightUpLeg','RHipJoint','RightHip'],
-  l_knee:     ['LeftLeg','mixamorig:LeftLeg','LeftKnee'],
-  r_knee:     ['RightLeg','mixamorig:RightLeg','RightKnee'],
-  l_ankle:    ['LeftFoot','mixamorig:LeftFoot','LeftAnkle'],
-  r_ankle:    ['RightFoot','mixamorig:RightFoot','RightAnkle'],
+  head:       ['Head','mixamorig:Head','head'],
+  neck:       ['Neck','mixamorig:Neck','neck'],
+  l_shoulder: ['LeftArm','mixamorig:LeftArm','LeftUpArm','lShldr'],
+  r_shoulder: ['RightArm','mixamorig:RightArm','RightUpArm','rShldr'],
+  l_elbow:    ['LeftForeArm','mixamorig:LeftForeArm','LeftLowArm','lForeArm'],
+  r_elbow:    ['RightForeArm','mixamorig:RightForeArm','RightLowArm','rForeArm'],
+  l_wrist:    ['LeftHand','mixamorig:LeftHand','lHand'],
+  r_wrist:    ['RightHand','mixamorig:RightHand','rHand'],
+  l_hip:      ['LeftUpLeg','mixamorig:LeftUpLeg','LHipJoint','LeftHip','lThigh'],
+  r_hip:      ['RightUpLeg','mixamorig:RightUpLeg','RHipJoint','RightHip','rThigh'],
+  l_knee:     ['LeftLeg','mixamorig:LeftLeg','LeftKnee','lShin'],
+  r_knee:     ['RightLeg','mixamorig:RightLeg','RightKnee','rShin'],
+  l_ankle:    ['LeftFoot','mixamorig:LeftFoot','LeftAnkle','lFoot'],
+  r_ankle:    ['RightFoot','mixamorig:RightFoot','RightAnkle','rFoot'],
 }
 
 /**

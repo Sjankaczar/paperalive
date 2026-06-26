@@ -87,4 +87,18 @@ describe('retargetBVH', () => {
     expect(res.success).toBe(true)
     expect(res.data.frames.length).toBe(2)
   })
+
+  it('maps Daz/Poser joint names (rShldr, lThigh, lShin, lFoot, ...)', () => {
+    // Naming used by the cgspeed CMU BVH release and three.js sample BVH.
+    const names = ['hip','neck','head','lShldr','rShldr','lForeArm','rForeArm',
+      'lHand','rHand','lThigh','rThigh','lShin','rShin','lFoot','rFoot']
+    const joints = names.map((name, i) => ({ name, offset:[0,0,0], channels:[], parent: i === 0 ? -1 : 0 }))
+    const rest = names.map((_, i) => ({ x: 0, y: i * 5, z: 0 }))
+    const stub = { joints, framesFK: [rest, rest], frameTime: 1/24 }
+    const res = retargetBVH(stub, {})
+    expect(res.success).toBe(true)
+    for (const id of ['head','neck','l_shoulder','r_shoulder','l_elbow','r_elbow','l_wrist','r_wrist','l_hip','r_hip','l_knee','r_knee','l_ankle','r_ankle']) {
+      expect(res.data.frames[0].joints[id]).toBeDefined()
+    }
+  })
 })

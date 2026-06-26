@@ -27,14 +27,37 @@ export function cleanMask(mask) {
   const { width, height } = mask
   let data = new Uint8Array(mask.data)
 
-  // Step 1: Morphological closing (dilate → erode)
+  // Normalize mask orientation: if the outermost pixel ring is ≥ 70% foreground
+  // the mask is almost certainly inverted (dark background = fg in luminance mode).
+  // Flip so character is always foreground before subsequent steps.
+  {
+    let borderFg = 0
+    for (let x = 0; x < width; x++) {
+      if (data[x] === 1) borderFg++
+      if (data[(height - 1) * width + x] === 1) borderFg++
+    }
+    for (let y = 1; y < height - 1; y++) {
+      if (data[y * width] === 1) borderFg++
+      if (data[y * width + width - 1] === 1) borderFg++
+    }
+    const borderPixels = 2 * (width + height) - 4
+    if (borderFg >= borderPixels * 0.95) {
+      for (let i = 0; i < data.length; i++) data[i] = data[i] ? 0 : 1
+    }
+  }
+
+  // Step 1: Morphological closing — two passes (≈5×5 effective kernel).
+  // Double pass smooths 1-2px jagged MediaPipe boundary noise, producing
+  // cleaner contours and better-conditioned triangles for ARAP.
+  data = dilate(data, width, height)
+  data = erode(data, width, height)
   data = dilate(data, width, height)
   data = erode(data, width, height)
 
-  // Step 2: Flood fill from edges — remove foreground touching borders
-  data = floodFillFromEdges(data, width, height)
-
-  // Step 3: Hole filling from foreground centroid
+  // Step 2: Hole filling from foreground centroid
+  // Note: floodFillFromEdges intentionally omitted — dilate can push character pixels
+  // to the image border, causing floodFill to eat valid foreground. Scattered border
+  // noise is handled by ContourTracer's internal getLargestComponent.
   data = fillHoles(data, width, height)
 
   // Step 4: Guard check — foreground < 3% → MASK_TOO_SMALL
@@ -52,6 +75,22 @@ export function cleanMask(mask) {
   }
 
   return { success: true, data: { data, width, height } }
+}
+
+/**
+ * Morphological closing (dilate → erode, 3×3 kernel) on a BinaryMask.
+ * Fills small gaps/holes without growing the overall silhouette.
+ * Reused by ThresholdEngine.autoEraseBackground (P1).
+ *
+ * @param {import('../types/characterData.js').BinaryMask} mask
+ * @returns {import('../types/characterData.js').BinaryMask}
+ */
+export function morphologicalClose(mask) {
+  const { width, height } = mask
+  let data = new Uint8Array(mask.data)
+  data = dilate(data, width, height)
+  data = erode(data, width, height)
+  return { data, width, height }
 }
 
 // ─── Morphological Operations ────────────────────────────────────────────────

@@ -25,7 +25,7 @@ import { precomputeARAP } from '../../arap/ARAPPrecompute.js'
 import { getMaskBoundingBox } from '../../utils/bbox.js'
 import { CHARACTER_DATA_VERSION } from '../../types/characterData.js'
 
-const DEFAULT_VERTEX_BUDGET = 400
+const DEFAULT_VERTEX_BUDGET = 800
 const DEFAULT_EPSILON_MIN = 1.0
 const MAX_BUDGET_ITERATIONS = 20
 

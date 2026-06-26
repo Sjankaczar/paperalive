@@ -135,7 +135,9 @@ export class MotionClipPlayer {
     const floatFrame = this._t * maxFrameIndex
     const frameA = Math.floor(floatFrame)
     const frameB = Math.min(frameA + 1, maxFrameIndex)
-    const alpha = floatFrame - frameA
+    const raw = floatFrame - frameA
+    // cosine ease: removes mechanical snap at keyframe boundaries
+    const alpha = (1 - Math.cos(raw * Math.PI)) * 0.5
 
     const offsetsA = frames[frameA].joints
     const offsetsB = frames[frameB].joints

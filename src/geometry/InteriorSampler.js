@@ -11,8 +11,8 @@
  * @see architecture/module_design.md — InteriorSampler.js
  */
 
-const TARGET_GRID_COUNT = 20
-const MIN_SPACING = 5
+const TARGET_GRID_COUNT = 35
+const MIN_SPACING = 3
 
 /**
  * Sample interior points within the mask using a normalized grid.

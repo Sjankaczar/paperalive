@@ -75,41 +75,30 @@ describe('TASK-026: Morphological Closing', () => {
 
 // ─── TASK-027: Flood Fill ────────────────────────────────────────────────────
 
-describe('TASK-027: Flood Fill from Edges', () => {
-  it('removes foreground noise connected to edges', () => {
-    // 100×100: vertical bar touching left edge + separate control block
-    // Vertical bar: x=0..10, y=20..80 (starts at x=0 = left edge)
-    // Control block: x=50..80, y=30..70 (not touching any edge)
+describe('TASK-027: Border handling', () => {
+  it('border-touching blobs survive cleanMask (ContourTracer picks largest)', () => {
+    // floodFillFromEdges removed: dilate expands character to border, making
+    // floodFill destructive. Scattered noise handled by ContourTracer getLargestComponent.
     const mask = makeMask(100, 100, (x, y) => {
-      // Vertical bar touching left edge
-      if (x >= 0 && x <= 10 && y >= 20 && y <= 80) return true
-      // Control block (not touching edges)
-      if (x >= 50 && x <= 80 && y >= 30 && y <= 70) return true
+      if (x >= 0 && x <= 10 && y >= 20 && y <= 80) return true  // bar at left edge
+      if (x >= 50 && x <= 80 && y >= 30 && y <= 70) return true  // larger control block
       return false
     })
 
     const result = cleanMask(mask)
     expect(result.success).toBe(true)
-
-    // Vertical bar should be removed (connected to left edge via flood fill)
-    expect(result.data.data[50 * 100 + 5]).toBe(0) // middle of bar
-    expect(result.data.data[50 * 100 + 0]).toBe(0) // left edge of bar
-
-    // Control block should survive (not connected to any edge)
+    // Both blobs present in mask — ContourTracer picks the larger control block
     expect(result.data.data[50 * 100 + 65]).toBe(1)
   })
 
-  it('uses 4-connectivity (diagonal foreground not removed)', () => {
-    // 10×10: foreground at center + single pixel diagonally connected to edge
+  it('interior block not touching edge survives', () => {
     const mask = makeMask(10, 10, (x, y) => {
-      // Center block
       if (x >= 4 && x <= 5 && y >= 4 && y <= 5) return true
       return false
     })
 
     const result = cleanMask(mask)
     expect(result.success).toBe(true)
-    // Center block should remain (not connected to edge via 4-connectivity)
     expect(result.data.data[4 * 10 + 4]).toBe(1)
   })
 })

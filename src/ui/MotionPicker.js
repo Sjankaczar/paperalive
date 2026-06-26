@@ -7,7 +7,6 @@
 
 import { parseBVH } from '../motion/BVHParser.js'
 import { retargetBVH } from '../motion/BVHRetargeter.js'
-import { toast } from './toast.js'
 
 const CLIPS = [
   { id: 'idle',  label: 'Diam' },
@@ -28,14 +27,14 @@ export class MotionPicker {
    * @param {(clipId: string) => void} callbacks.onClipSelected
    * @param {() => void} callbacks.onPlay
    * @param {() => void} callbacks.onStop
-   * @param {(clip: object) => void} callbacks.onBVHImported
+   * @param {(clip: import('../motion/MotionClipPlayer.js').MotionClip) => void} [callbacks.onClipImport]
    */
   constructor(container, callbacks) {
     this._container = container
     this._onClipSelected = callbacks.onClipSelected
     this._onPlay = callbacks.onPlay
     this._onStop = callbacks.onStop
-    this._onBVHImported = callbacks.onBVHImported
+    this._onClipImport = callbacks.onClipImport
 
     /** @type {HTMLElement|null} */
     this._el = null
@@ -84,66 +83,70 @@ export class MotionPicker {
     stopBtn.addEventListener('click', () => this._onStop?.())
     el.appendChild(stopBtn)
 
-    // Hidden file input for BVH import
+    // BVH import (P4): hidden file input + trigger button
     const fileInput = document.createElement('input')
     fileInput.type = 'file'
     fileInput.accept = '.bvh'
     fileInput.style.display = 'none'
-    fileInput.addEventListener('change', (e) => this._handleFile(e))
+    fileInput.addEventListener('change', () => this._handleBVHFile(fileInput))
     el.appendChild(fileInput)
 
-    // Import BVH button
     const importBtn = document.createElement('button')
-    importBtn.className = 'paperalive-btn paperalive-btn-small'
-    importBtn.textContent = '⬆ Import BVH'
-    importBtn.setAttribute('aria-label', 'Impor file BVH')
+    importBtn.className = 'paperalive-btn paperalive-btn-small paperalive-btn-import'
+    importBtn.textContent = '⬆ Impor BVH'
+    importBtn.setAttribute('aria-label', 'Impor gerakan dari file BVH')
     importBtn.addEventListener('click', () => fileInput.click())
     el.appendChild(importBtn)
 
+    this._select = select
     this._el = el
     this._container.appendChild(el)
   }
 
   /**
-   * Read a .bvh file, parse + retarget, append as a clip option.
-   * @param {Event} e
-   * @private
+   * Read a user-selected .bvh file, retarget it to a MotionClip, append it to
+   * the dropdown, and notify via onClipImport.
+   * @param {HTMLInputElement} fileInput
    */
-  _handleFile(e) {
-    const file = e.target.files && e.target.files[0]
+  _handleBVHFile(fileInput) {
+    const file = fileInput.files && fileInput.files[0]
     if (!file) return
+
     const reader = new FileReader()
     reader.onload = () => {
       try {
+        const clipId = `bvh:${file.name}`
         const parsed = parseBVH(String(reader.result))
-        if (!parsed.success) {
-          toast('error', `Gagal baca BVH: ${parsed.message}`)
-          return
-        }
-        const clipId = `bvh_${file.name.replace(/\.bvh$/i, '')}`
+        if (!parsed.success) throw new Error(parsed.message)
         const retarget = retargetBVH(parsed.data, { id: clipId })
-        if (!retarget.success) {
-          toast('error', `Gagal retarget BVH: ${retarget.message}`)
-          return
-        }
-        const select = this._el && this._el.querySelector('select')
-        const exists = select && Array.from(select.options).some(o => o.value === clipId)
-        if (select && !exists) {
-          const opt = document.createElement('option')
-          opt.value = clipId
-          opt.textContent = `BVH: ${file.name}`
-          select.appendChild(opt)
-          select.value = clipId
-        }
-        this._onBVHImported?.(retarget.data)
-        toast('success', `BVH "${file.name}" diimpor`)
+        if (!retarget.success) throw new Error(retarget.message)
+        this._addClipOption(clipId, `BVH: ${file.name}`)
+        this._onClipImport?.(retarget.data)
+        if (this._select) this._select.value = clipId
+        this._onClipSelected?.(clipId)
       } catch (err) {
-        toast('error', `Gagal impor BVH: ${err.message}`)
+        console.error('BVH import failed:', err)
+      } finally {
+        fileInput.value = ''
       }
     }
-    reader.onerror = () => toast('error', 'Gagal membaca file')
     reader.readAsText(file)
-    e.target.value = ''   // allow re-importing the same file
+  }
+
+  /**
+   * Append (or reuse) an option in the clip dropdown.
+   * @param {string} id
+   * @param {string} label
+   */
+  _addClipOption(id, label) {
+    if (!this._select) return
+    let opt = this._select.querySelector(`option[value="${CSS.escape(id)}"]`)
+    if (!opt) {
+      opt = document.createElement('option')
+      opt.value = id
+      opt.textContent = label
+      this._select.appendChild(opt)
+    }
   }
 
   /**

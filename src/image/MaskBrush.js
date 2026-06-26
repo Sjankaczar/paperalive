@@ -53,7 +53,8 @@ export class MaskBrush {
   applyStroke(x, y) {
     const { data, width, height } = this.#mask
     const radius = this.brushRadius
-    const value = this.brushMode === 'add' ? 1 : 0
+    // 'add' = mark as background (green = to delete), 'erase' = restore as character
+    const value = this.brushMode === 'add' ? 0 : 1
     const rSq = radius * radius
 
     // Bounding box of the brush circle, clamped to mask bounds

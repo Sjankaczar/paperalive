@@ -114,12 +114,7 @@ export class StageStep {
       onClipSelected: (clipId) => this._selectClip(clipId),
       onPlay: () => this._playClip(),
       onStop: () => this._stopClip(),
-      onBVHImported: (clip) => {
-        if (this._motionResolver) {
-          this._motionResolver.registerClip(clip.id, clip)
-          this._motionResolver.playClip(clip.id)
-        }
-      },
+      onClipImport: (clip) => this._importClip(clip),
     })
 
     // Export panel
@@ -270,6 +265,17 @@ export class StageStep {
   _selectClip(clipId) {
     this._currentClipId = clipId
     this._onClipChange?.(clipId)
+  }
+
+  /**
+   * Register an imported BVH clip and make it the active selection (P4).
+   * @param {import('../motion/MotionClipPlayer.js').MotionClip} clip
+   */
+  _importClip(clip) {
+    if (!this._motionResolver || !clip || !clip.id) return
+    this._motionResolver.registerClip(clip.id, clip)
+    this._currentClipId = clip.id
+    this._onClipChange?.(clip.id)
   }
 
   /**

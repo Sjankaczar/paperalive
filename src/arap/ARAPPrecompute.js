@@ -144,7 +144,7 @@ export function buildLaplacianAllPinned(mesh, weights, pins) {
       }
     }
 
-    L.set(i, i, diagSum)
+    L.set(i, i, diagSum + EPS)
   }
 
   return L

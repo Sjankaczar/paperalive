@@ -1,95 +1,134 @@
+// @worker-safe
 /**
  * @file ThresholdEngine.js
- * @description Convert ImageData → BinaryMask using alpha or luminance thresholding.
+ * @description Smart background segmentation for paper characters.
  *
- * Two modes:
- *   - "alpha":      pixel alpha >= threshold → foreground (1), else background (0)
- *   - "luminance":  L = 0.299R + 0.587G + 0.114B; L < threshold → foreground (1)
- *
- * Canvas preview renders foreground overlay as rgba(0, 200, 100, 0.4).
- *
- * @see architecture/module_design.md — ThresholdEngine.js
- * @see architecture/dataflow.md — BinaryMask
+ * Adaptive border-sampling + two-pass BFS flood fill.
+ * No DOM access — worker-safe.
  */
 
+import { morphologicalClose } from '../geometry/MorphologicalCleaner.js'
+
+const DX4 = [0, 0, -1, 1]
+const DY4 = [-1, 1, 0, 0]
+
 /**
- * Apply threshold to ImageData and produce a BinaryMask.
+ * Automatically detect and mark background pixels in a paper character image.
  *
- * @param {ImageData} imageData  - Decoded pixel data
- * @param {number}    threshold  - Threshold value (0–255)
- * @param {"alpha"|"luminance"} mode - Thresholding mode
+ * Algorithm:
+ *   1. Background color from corner patches (avoids eating limbs at image edges)
+ *   2. Adaptive tolerance from corner variance, clamped [20, 60]
+ *   3. BFS flood fill from all border pixels — seeded only where color matches bg
+ *      (character limbs touching the border are protected by color distance check)
+ *   4. Double morphological close to smooth edges and fill small gaps
+ *
+ * Caller should follow with keepSignificantComponents() to preserve all body parts.
+ *
+ * @param {ImageData} imageData
  * @returns {import('../types/characterData.js').BinaryMask}
  */
-export function applyThreshold(imageData, threshold, mode) {
+export function autoEraseBackground(imageData) {
   const { width, height, data } = imageData
-  const mask = new Uint8Array(width * height)
+  const size = width * height
 
-  if (mode === 'alpha') {
-    applyAlphaThreshold(data, mask, threshold)
-  } else if (mode === 'luminance') {
-    applyLuminanceThreshold(data, mask, threshold)
-  } else {
-    throw new Error(`ThresholdEngine: Unknown mode "${mode}". Use "alpha" or "luminance".`)
-  }
+  // 1. Background color from corner patches
+  const bg = cornerBgColor(data, width, height)
 
-  return { data: mask, width, height }
-}
+  // 2. Adaptive tolerance from corner variance, range [30, 65]
+  // Floor 30: catches JPEG-noisy off-white paper; ceiling 65: won't eat colored character pixels
+  const variance = cornerVariance(data, width, height, bg)
+  const tolerance = Math.min(65, Math.max(30, Math.sqrt(variance) * 1.1))
+  const tolSq = tolerance * tolerance
 
-/**
- * Alpha threshold: pixel with alpha >= threshold → foreground (1).
- *
- * @param {Uint8ClampedArray} srcData - RGBA pixel data
- * @param {Uint8Array}        mask    - Output binary mask
- * @param {number}            threshold
- */
-function applyAlphaThreshold(srcData, mask, threshold) {
-  for (let i = 0, p = 3; i < mask.length; i++, p += 4) {
-    mask[i] = srcData[p] >= threshold ? 1 : 0
-  }
-}
+  // 3. BFS from all border pixels
+  const isBg = new Uint8Array(size)
+  const queue = []
 
-/**
- * Luminance threshold: L = 0.299R + 0.587G + 0.114B; L < threshold → foreground (1).
- *
- * @param {Uint8ClampedArray} srcData - RGBA pixel data
- * @param {Uint8Array}        mask    - Output binary mask
- * @param {number}            threshold
- */
-function applyLuminanceThreshold(srcData, mask, threshold) {
-  for (let i = 0, p = 0; i < mask.length; i++, p += 4) {
-    const luminance = 0.299 * srcData[p] + 0.587 * srcData[p + 1] + 0.114 * srcData[p + 2]
-    mask[i] = luminance < threshold ? 1 : 0
-  }
-}
-
-/**
- * Render a threshold preview overlay onto a 2D canvas context.
- * Foreground pixels are drawn as rgba(0, 200, 100, 0.4).
- * Background pixels are left transparent.
- *
- * @param {ImageData}  imageData  - Source pixel data
- * @param {number}     threshold  - Threshold value (0–255)
- * @param {"alpha"|"luminance"} mode - Thresholding mode
- * @param {CanvasRenderingContext2D} outputCtx - Target canvas 2D context
- */
-export function applyThresholdToCanvas(imageData, threshold, mode, outputCtx) {
-  const { width, height } = imageData
-  const mask = applyThreshold(imageData, threshold, mode)
-
-  // Build overlay ImageData: foreground = rgba(0, 200, 100, 102), background = transparent
-  const overlay = outputCtx.createImageData(width, height)
-  const out = overlay.data
-
-  for (let i = 0; i < mask.data.length; i++) {
-    const p = i * 4
-    if (mask.data[i] === 1) {
-      out[p] = 0       // R
-      out[p + 1] = 200  // G
-      out[p + 2] = 100  // B
-      out[p + 3] = 102  // A ≈ 0.4 × 255
+  const tryAdd = (idx) => {
+    if (!isBg[idx] && colorDistSq(data, idx, bg) <= tolSq) {
+      isBg[idx] = 1
+      queue.push(idx)
     }
-    // Background pixels remain (0,0,0,0) — transparent
+  }
+  for (let x = 0; x < width; x++) {
+    tryAdd(x)
+    tryAdd((height - 1) * width + x)
+  }
+  for (let y = 1; y < height - 1; y++) {
+    tryAdd(y * width)
+    tryAdd(y * width + width - 1)
   }
 
-  outputCtx.putImageData(overlay, 0, 0)
+  let head = 0
+  while (head < queue.length) {
+    const idx = queue[head++]
+    const cx = idx % width
+    const cy = (idx - cx) / width
+    for (let d = 0; d < 4; d++) {
+      const nx = cx + DX4[d]
+      const ny = cy + DY4[d]
+      if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue
+      const nIdx = ny * width + nx
+      if (isBg[nIdx]) continue
+      if (colorDistSq(data, nIdx, bg) <= tolSq) {
+        isBg[nIdx] = 1
+        queue.push(nIdx)
+      }
+    }
+  }
+
+  // 4. Build foreground mask + double morphological close
+  const mask = new Uint8Array(size)
+  for (let i = 0; i < size; i++) mask[i] = isBg[i] ? 0 : 1
+
+  let result = morphologicalClose({ data: mask, width, height })
+  result = morphologicalClose(result)
+  return result
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Median background color sampled from the four corner patches.
+ * Characters rarely occupy all four corners, so corners give reliable bg samples.
+ */
+function cornerBgColor(data, width, height) {
+  const patch = Math.max(8, Math.floor(Math.min(width, height) * 0.08))
+  const rs = [], gs = [], bs = []
+  const push = (x, y) => {
+    const p = (y * width + x) * 4
+    rs.push(data[p]); gs.push(data[p + 1]); bs.push(data[p + 2])
+  }
+  for (let y = 0; y < patch; y++) {
+    for (let x = 0; x < patch; x++) {
+      push(x, y);                          push(width - 1 - x, y)
+      push(x, height - 1 - y);            push(width - 1 - x, height - 1 - y)
+    }
+  }
+  rs.sort((a, b) => a - b); gs.sort((a, b) => a - b); bs.sort((a, b) => a - b)
+  const mid = rs.length >> 1
+  return [rs[mid], gs[mid], bs[mid]]
+}
+
+/** Average squared distance from corner pixels to bg — measures background uniformity. */
+function cornerVariance(data, width, height, bg) {
+  const patch = Math.max(8, Math.floor(Math.min(width, height) * 0.08))
+  let sum = 0, n = 0
+  const add = (x, y) => { sum += colorDistSq(data, y * width + x, bg); n++ }
+  for (let y = 0; y < patch; y++) {
+    for (let x = 0; x < patch; x++) {
+      add(x, y);                       add(width - 1 - x, y)
+      add(x, height - 1 - y);         add(width - 1 - x, height - 1 - y)
+    }
+  }
+  return sum / n
+}
+
+/** Squared Euclidean RGB distance (avoids sqrt per pixel). */
+function colorDistSq(data, idx, bg) {
+  const p = idx * 4
+  const dr = data[p] - bg[0]
+  const dg = data[p + 1] - bg[1]
+  const db = data[p + 2] - bg[2]
+  return dr * dr + dg * dg + db * db
 }

@@ -5,7 +5,9 @@
  * @see implementation/tasks/TASK-127-145-epic11-ui.md — TASK-128
  */
 
-import { applyThreshold } from '../image/ThresholdEngine.js'
+import { autoEraseBackground } from '../image/ThresholdEngine.js'
+import { segmentWithMediaPipe, initSegmenter } from '../image/MediaPipeSegmenter.js'
+import { keepSignificantComponents } from '../geometry/ConnectedComponents.js'
 import { MaskBrush } from '../image/MaskBrush.js'
 import { MaskHistory } from '../history/MaskHistory.js'
 
@@ -43,8 +45,6 @@ export class MaskStep {
     this._ctx = null
     /** @type {MaskBrush|null} */
     this._brush = null
-    /** @type {number} */
-    this._threshold = 30
     /** @type {boolean} */
     this._isDrawing = false
 
@@ -68,13 +68,18 @@ export class MaskStep {
   _initMask() {
     if (!this._alphaMask) {
       const img = this._loadedImage
-      this._alphaMask = applyThreshold(img.imageData, this._threshold, img.hasAlpha ? 'alpha' : 'luminance')
+      // Start with full image visible (all foreground = no green marks).
+      // User must click "Auto Tandai BG" or drag the slider to mark background.
+      const data = new Uint8Array(img.width * img.height).fill(1)
+      this._alphaMask = { data, width: img.width, height: img.height }
     }
     // Push initial mask snapshot
     this._maskHistory.push(this._alphaMask)
     if (this._onHistoryInit) {
       this._onHistoryInit(this._maskHistory)
     }
+    // Sync initial mask to app state so onNext always has a non-null sm.alphaMask
+    this._onMaskChange?.(this._alphaMask)
   }
 
   /**
@@ -111,19 +116,29 @@ export class MaskStep {
     const controls = document.createElement('div')
     controls.className = 'paperalive-mask-controls'
 
-    // Threshold slider
-    const threshGroup = this._createSliderGroup(
-      'Threshold', 0, 255, this._threshold,
-      (val) => {
-        this._threshold = val
-        const img = this._loadedImage
-        this._alphaMask = applyThreshold(img.imageData, val, img.hasAlpha ? 'alpha' : 'luminance')
-        this._brush = new MaskBrush(this._canvas, this._alphaMask)
-        this._renderPreview()
-        this._onMaskChange?.(this._alphaMask)
+    // Auto background erase (P1 + P2): one-click clean mask
+    const autoGroup = document.createElement('div')
+    autoGroup.className = 'paperalive-control-group'
+
+    const autoBtn = document.createElement('button')
+    autoBtn.className = 'paperalive-btn paperalive-btn-small paperalive-btn-auto'
+    autoBtn.textContent = '🎯 Auto Tandai BG'
+    autoBtn.setAttribute('aria-label', 'Deteksi dan tandai background otomatis (hijau = dihapus)')
+    autoBtn.addEventListener('click', async () => {
+      autoBtn.disabled = true
+      autoBtn.textContent = '⏳ Mendeteksi...'
+      try {
+        await this._autoErase()
+      } finally {
+        autoBtn.disabled = false
+        autoBtn.textContent = '🎯 Auto Tandai BG'
       }
-    )
-    controls.appendChild(threshGroup)
+    })
+    autoGroup.appendChild(autoBtn)
+
+    // Preload MediaPipe model while user views the canvas
+    initSegmenter().catch(() => {})
+    controls.appendChild(autoGroup)
 
     // Brush mode toggle
     const modeGroup = document.createElement('div')
@@ -138,13 +153,13 @@ export class MaskStep {
 
     const addBtn = document.createElement('button')
     addBtn.className = 'paperalive-btn paperalive-btn-small active'
-    addBtn.textContent = '+ Tambah'
-    addBtn.setAttribute('aria-label', 'Mode tambah mask')
+    addBtn.textContent = '🗑 Tandai BG'
+    addBtn.setAttribute('aria-label', 'Tandai area sebagai background (hijau)')
 
     const eraseBtn = document.createElement('button')
     eraseBtn.className = 'paperalive-btn paperalive-btn-small'
-    eraseBtn.textContent = '- Hapus'
-    eraseBtn.setAttribute('aria-label', 'Mode hapus mask')
+    eraseBtn.textContent = '✓ Pulihkan'
+    eraseBtn.setAttribute('aria-label', 'Pulihkan area sebagai karakter')
 
     addBtn.addEventListener('click', () => {
       this._brush.brushMode = 'add'
@@ -262,6 +277,53 @@ export class MaskStep {
   }
 
   /**
+   * Auto-detect background.
+   *
+   * Primary: heuristic corner-BFS (reliable for paper on uniform background).
+   * Supplement: if MediaPipe gives a plausible result (5–55% fg), union it in
+   * to recover any character pixels the heuristic missed.
+   * Safety: if MediaPipe marks >55% of pixels as foreground, it's giving garbage
+   * (selfie model confused by drawings) — ignore it, heuristic-only wins.
+   */
+  async _autoErase() {
+    const img = this._loadedImage
+    const size = img.width * img.height
+
+    const heuristic = autoEraseBackground(img.imageData)
+    let mask = heuristic
+
+    try {
+      const mpMask = await segmentWithMediaPipe(img.imageData)
+
+      let mpFg = 0
+      for (let i = 0; i < size; i++) if (mpMask.data[i] === 1) mpFg++
+      const mpRatio = mpFg / size
+
+      if (mpRatio >= 0.05 && mpRatio <= 0.55) {
+        // MediaPipe looks reasonable — union to recover body parts heuristic may miss
+        const unionData = new Uint8Array(size)
+        for (let i = 0; i < size; i++) {
+          unionData[i] = (mpMask.data[i] === 1 || heuristic.data[i] === 1) ? 1 : 0
+        }
+        mask = { data: unionData, width: img.width, height: img.height }
+      }
+      // else: MediaPipe result unreliable — keep heuristic-only
+    } catch {
+      // MediaPipe unavailable — heuristic-only
+    }
+
+    // Keep all body-part blobs above 0.5% of image — drops noise, preserves disconnected limbs
+    mask = keepSignificantComponents(mask, 0.005)
+
+    this._alphaMask = mask
+    this._brush = new MaskBrush(this._canvas, this._alphaMask)
+    this._maskHistory.push(this._alphaMask)
+    this._updateUndoRedoButtons()
+    this._renderPreview()
+    this._onMaskChange?.(this._alphaMask)
+  }
+
+  /**
    * Render the image with mask overlay on the canvas.
    */
   _renderPreview() {
@@ -279,12 +341,13 @@ export class MaskStep {
     const maskData = mask.data
 
     for (let i = 0; i < maskData.length; i++) {
-      if (maskData[i] > 0) {
+      if (maskData[i] === 0) {
         const pi = i * 4
-        // Blend green overlay
-        src[pi] = Math.round(src[pi] * 0.6)
-        src[pi + 1] = Math.round(src[pi + 1] * 0.6 + 80)
-        src[pi + 2] = Math.round(src[pi + 2] * 0.6)
+        // Bright green overlay = background (marked for deletion)
+        // 30% original + dominant green so even black backgrounds show clearly
+        src[pi] = Math.round(src[pi] * 0.3)
+        src[pi + 1] = Math.min(255, Math.round(src[pi + 1] * 0.3 + 180))
+        src[pi + 2] = Math.round(src[pi + 2] * 0.3)
         src[pi + 3] = 255
       }
     }
@@ -296,6 +359,7 @@ export class MaskStep {
    * Handle pointer down for brush drawing.
    */
   _handlePointerDown(e) {
+    e.preventDefault()
     this._isDrawing = true
     const rect = this._canvas.getBoundingClientRect()
     const scaleX = this._canvas.width / rect.width
@@ -311,6 +375,7 @@ export class MaskStep {
    */
   _handlePointerMove(e) {
     if (!this._isDrawing) return
+    e.preventDefault()
     const rect = this._canvas.getBoundingClientRect()
     const scaleX = this._canvas.width / rect.width
     const scaleY = this._canvas.height / rect.height

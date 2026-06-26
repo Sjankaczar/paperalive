@@ -6,6 +6,7 @@
  */
 
 import { estimateSkeleton } from '../skeleton/SkeletonEstimator.js'
+import { detectPoseJoints, initPoseLandmarker } from '../skeleton/PoseJointDetector.js'
 import { RigEditor } from '../skeleton/RigEditor.js'
 import { JointHistory } from '../skeleton/JointHistory.js'
 
@@ -155,6 +156,34 @@ export class RigStep {
     typeGroup.appendChild(radioWrap)
     controls.appendChild(typeGroup)
 
+    // AI auto-detect joints
+    const autoGroup = document.createElement('div')
+    autoGroup.className = 'paperalive-control-group'
+
+    const autoJointBtn = document.createElement('button')
+    autoJointBtn.className = 'paperalive-btn paperalive-btn-small paperalive-btn-auto'
+    autoJointBtn.textContent = '🤖 Auto Detect Sendi'
+    autoJointBtn.setAttribute('aria-label', 'Deteksi sendi otomatis dengan AI')
+    autoJointBtn.addEventListener('click', async () => {
+      autoJointBtn.disabled = true
+      autoJointBtn.textContent = '⏳ Mendeteksi...'
+      try {
+        const joints = await detectPoseJoints(this._loadedImage.imageData)
+        this._applyJoints(joints)
+      } catch {
+        // PoseLandmarker didn't detect a pose — fall back to heuristic
+        this._applyJoints(estimateSkeleton(this._alphaMask))
+      } finally {
+        autoJointBtn.disabled = false
+        autoJointBtn.textContent = '🤖 Auto Detect Sendi'
+      }
+    })
+    autoGroup.appendChild(autoJointBtn)
+    controls.appendChild(autoGroup)
+
+    // Preload pose model in background
+    initPoseLandmarker().catch(() => {})
+
     // Undo/Redo
     const undoGroup = document.createElement('div')
     undoGroup.className = 'paperalive-control-group'
@@ -239,6 +268,22 @@ export class RigStep {
     }
 
     this._rigEditor.render()
+
+    // Push initial joints so sm.jointPositions is never null when user clicks Bring to Life
+    this._onJointsChange?.(this._jointPositions, this._characterType)
+  }
+
+  /**
+   * Apply a new joint list: update state, history, editor, and notify app.
+   * @param {import('../types/characterData.js').JointPositionList} joints
+   */
+  _applyJoints(joints) {
+    this._jointPositions = joints
+    this._jointHistory.push(this._jointPositions)
+    this._updateUndoRedoButtons()
+    this._updateBringToLifeButton()
+    this._initRigEditor()
+    this._onJointsChange?.(this._jointPositions, this._characterType)
   }
 
   /**

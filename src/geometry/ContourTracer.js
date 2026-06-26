@@ -66,7 +66,6 @@ export function traceContour(mask) {
  */
 function getLargestComponent(data, width, height) {
   const visited = new Uint8Array(width * height)
-  const queue = []
 
   let bestStart = -1
   let bestCount = 0
@@ -76,9 +75,9 @@ function getLargestComponent(data, width, height) {
       const idx = y * width + x
       if (data[idx] === 0 || visited[idx]) continue
 
-      // BFS to find component size
+      // Fresh queue per component — shared queue caused count inflation across components
+      const queue = [idx]
       visited[idx] = 1
-      queue.push(idx)
       let head = 0
       let count = 0
 

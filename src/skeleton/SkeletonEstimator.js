@@ -84,10 +84,12 @@ const HUMANOID_PROPORTIONS = [
  * at anatomically reasonable positions for a humanoid silhouette.
  *
  * @param {import('../types/characterData.js').BinaryMask} mask
+ * @param {{ top:number, left:number, width:number, height:number }} [bbox]
+ *        Optional precomputed bbox (e.g. from ConnectedComponents P2). When
+ *        omitted, the bbox is derived from the mask.
  * @returns {import('../types/characterData.js').JointPositionList}
  */
-export function estimateSkeleton(mask) {
-  const bbox = getMaskBoundingBox(mask)
+export function estimateSkeleton(mask, bbox = getMaskBoundingBox(mask)) {
   if (!bbox) return []
 
   const centroid = getMaskCentroid(mask)
